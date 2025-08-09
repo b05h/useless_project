@@ -1,15 +1,31 @@
 import streamlit as st
-import tempfile
-import numpy as np
 import cv2
+import numpy as np
 from PIL import Image
-import google.generativeai as genai
-from mocking_responses import get_sarcastic_reply
-from sunglass_detection import detect_sunglasses_from_frame
-import json
-import os
+from sunglass_detection import detect_sunglasses_from_frame  # Your existing detection function
 
-# ===== CONFIGURE GEMINI API =====
+# Dummy static weather data (fake & sarcastic)
+current_weather = {
+    "Temperature": "-10°C (But feels like emotionally drained)",
+    "Condition": "Cloudy with a chance of sarcasm",
+    "UV Index": "Very high — sunglasses recommended (obviously)",
+    "AQI": "42 (Safe, unless you ask me!)"
+}
+
+hourly_forecast = [
+    {"hour": "9 AM", "cond": "Mostly meh"},
+    {"hour": "12 PM", "cond": "Slightly annoyed sun"},
+    {"hour": "3 PM",  "cond": "Clouds hiding, probably plotting"},
+    {"hour": "6 PM", "cond": "Getting cooler, like your mood"}
+]
+
+five_day_forecast = [
+    {"Day": "Maybe Tomorrow", "Condition": "Pizza rain", "High": "26°C", "Low": "18°C"},
+    {"Day": "Not Today", "Condition": "Sunny-ish with sarcasm", "High": "27°C", "Low": "17°C"},
+    {"Day": "Maybe Thursday", "Condition": "Storm of nonsense", "High": "25°C", "Low": "19°C"},
+    {"Day": "Someday", "Condition": "Cloudy with weird vibes", "High": "24°C", "Low": "18°C"},
+    {"Day": "Yesterday", "Condition": "Windy, like your ex’s attitude", "High": "23°C", "Low": "17°C"}
+]
 
 weather_keywords = [
     "weather", "rain", "sun", "sunny", "storm", "snow", "cloud", "cloudy",
@@ -19,8 +35,6 @@ weather_keywords = [
 
 def ask_gemini(query):
     query_lower = query.lower()
-    
-    # Check if any weather keyword is in the query
     detected_keyword = None
     for kw in weather_keywords:
         if kw in query_lower:
@@ -28,10 +42,9 @@ def ask_gemini(query):
             break
     
     if detected_keyword:
-        # Prepare a sarcastic reply based on detected_keyword
         if detected_keyword == "rain":
             reply = "Oh great, another rainy day to ruin your plans. Don't forget your umbrella... or better yet, just stay inside!"
-        elif detected_keyword == "sun" or detected_keyword == "sunny":
+        elif detected_keyword in ["sun", "sunny"]:
             reply = "Ah yes, the sun is shining bright just to remind you how sweaty you’ll be outside."
         elif detected_keyword == "storm":
             reply = "Storm alert! Perfect weather to test if your roof leaks or not."
@@ -39,25 +52,44 @@ def ask_gemini(query):
             reply = "Snow again? Time to shovel and freeze your toes off!"
         else:
             reply = f"Yeah, the {detected_keyword} is just fabulous today. Couldn't be better!"
-        
         return {"is_weather": True, "reply": reply}
-    
-    # If no weather keyword detected, normal reply
     return {"is_weather": False, "reply": "Hmm, not sure about that. But I'm here to chat!"}
+
+def show_dashboard():
+    st.header("🌦 Fake Weather Dashboard")
+
+    st.subheader("Current Weather")
+    for key, val in current_weather.items():
+        st.write(f"**{key}:** {val}")
+
+    st.subheader("Hourly Forecast")
+    for hour in hourly_forecast:
+        st.write(f"{hour['hour']}: {hour['temp']}, {hour['cond']}")
+
+    st.subheader("7-Day Outlook")
+    st.table(seven_day_forecast)
+
+    st.subheader("Radar")
+    # You can use an image file or URL; replace below with your pizza image path or URL
+    pizza_img_url = "https://i.imgur.com/e9h8Bpy.png"  # Example pizza radar image
+    st.image(pizza_img_url, caption="Radar? More like pizza delivery map!")
+
+    st.subheader("Air Quality & UV Index")
+    st.write(f"AQI: {current_weather['AQI']}")
+    st.write(f"UV Index: {current_weather['UV Index']}")
 
 def main():
     st.set_page_config(page_title="Sarcastic Weather App", page_icon="😏", layout="centered")
-    st.title("😎 Sarcastic Weather App")
 
-    # ===== SESSION STATE =====
     if "sunglasses_ok" not in st.session_state:
         st.session_state.sunglasses_ok = False
+    if "awaiting_upload" not in st.session_state:
+        st.session_state.awaiting_upload = False
 
-    # ===== STEP 1: Sunglass Detection =====
     if not st.session_state.sunglasses_ok:
         st.subheader("Step 1: Show me your sunglasses 😎")
         start = st.button("Start Detection")
-        FRAME_WINDOW = st.image([])
+        frame_window = st.image([])
 
         if start:
             cap = cv2.VideoCapture(0)
@@ -67,31 +99,34 @@ def main():
             else:
                 frame = cv2.flip(frame, 1)
                 detected, annotated_frame = detect_sunglasses_from_frame(frame)
-                FRAME_WINDOW.image(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
-
+                frame_window.image(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
                 if detected:
                     st.success("✅ Sunglasses detected! Access granted.")
                     st.session_state.sunglasses_ok = True
                 else:
                     st.error("🚫 No sunglasses detected! Go put them on if you want sarcastic weather.")
             cap.release()
+    else:
+        st.header("Welcome to your sarcastic weather dashboard!")
 
-    # ===== STEP 2: Query Box =====
-    if st.session_state.sunglasses_ok:
-        query = st.text_input("Ask me anything (weather or not)...")
-        if query:
-            result = ask_gemini(query)
-            st.write("🤖:", result["reply"])
+        tab1, tab2 = st.tabs(["Dashboard", "Query Bot"])
 
+        with tab1:
+            show_dashboard()
 
-            # ===== STEP 3: Compel user to try again =====
-            st.info("This time I promise I'll give you the accurate weather... trust me 😏")
-
-            # ===== STEP 4: Upload outside image =====
-            outside_img = st.file_uploader("Upload a picture outside your window", type=["jpg", "png", "jpeg"])
-            if outside_img:
-                img_out = Image.open(outside_img)
-                st.image(img_out, caption="📸 This is the weather right now. You're welcome.")
+        with tab2:
+            if not st.session_state.awaiting_upload:
+                query = st.text_input("Ask me anything (weather or not)...")
+                if query:
+                    result = ask_gemini(query)
+                    st.write("🤖:", result["reply"])
+                    # ===== STEP 3: Compel user to try again =====
+                    st.info("This time I promise I'll give you the accurate weather... trust me 😏")
+                    outside_img = st.file_uploader("Upload a picture outside your window", type=["jpg", "png", "jpeg"])
+                    if outside_img:
+                    img_out = Image.open(outside_img)
+                    st.image(img_out, caption="📸 This is the weather right now. You're welcome.")
+           
 
 if __name__ == "__main__":
     main()

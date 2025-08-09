@@ -1,8 +1,7 @@
 import streamlit as st
 import cv2
-import numpy as np
 from PIL import Image
-from sunglass_detection import detect_sunglasses_from_frame  # Your existing detection function
+from sunglass_detection import detect_sunglasses_from_frame  # Your detection function
 
 # Dummy static weather data (fake & sarcastic)
 current_weather = {
@@ -13,13 +12,13 @@ current_weather = {
 }
 
 hourly_forecast = [
-    {"hour": "9 AM", "cond": "Mostly meh"},
-    {"hour": "12 PM", "cond": "Slightly annoyed sun"},
-    {"hour": "3 PM",  "cond": "Clouds hiding, probably plotting"},
-    {"hour": "6 PM", "cond": "Getting cooler, like your mood"}
+    {"hour": "9 AM", "temp": "15°C", "cond": "Mostly meh"},
+    {"hour": "12 PM", "temp": "18°C", "cond": "Slightly annoyed sun"},
+    {"hour": "3 PM",  "temp": "17°C", "cond": "Clouds hiding, probably plotting"},
+    {"hour": "6 PM", "temp": "14°C", "cond": "Getting cooler, like your mood"}
 ]
 
-five_day_forecast = [
+seven_day_forecast = [
     {"Day": "Maybe Tomorrow", "Condition": "Pizza rain", "High": "26°C", "Low": "18°C"},
     {"Day": "Not Today", "Condition": "Sunny-ish with sarcasm", "High": "27°C", "Low": "17°C"},
     {"Day": "Maybe Thursday", "Condition": "Storm of nonsense", "High": "25°C", "Low": "19°C"},
@@ -70,7 +69,6 @@ def show_dashboard():
     st.table(seven_day_forecast)
 
     st.subheader("Radar")
-    # You can use an image file or URL; replace below with your pizza image path or URL
     pizza_img_url = "https://i.imgur.com/e9h8Bpy.png"  # Example pizza radar image
     st.image(pizza_img_url, caption="Radar? More like pizza delivery map!")
 
@@ -103,10 +101,12 @@ def main():
                 if detected:
                     st.success("✅ Sunglasses detected! Access granted.")
                     st.session_state.sunglasses_ok = True
+                    st.rerun()
                 else:
                     st.error("🚫 No sunglasses detected! Go put them on if you want sarcastic weather.")
             cap.release()
     else:
+        # Sunglasses detected → show dashboard + query tabs immediately
         st.header("Welcome to your sarcastic weather dashboard!")
 
         tab1, tab2 = st.tabs(["Dashboard", "Query Bot"])
@@ -120,13 +120,14 @@ def main():
                 if query:
                     result = ask_gemini(query)
                     st.write("🤖:", result["reply"])
-                    # ===== STEP 3: Compel user to try again =====
                     st.info("This time I promise I'll give you the accurate weather... trust me 😏")
-                    outside_img = st.file_uploader("Upload a picture outside your window", type=["jpg", "png", "jpeg"])
-                    if outside_img:
+                    st.session_state.awaiting_upload = True
+            else:
+                outside_img = st.file_uploader("Upload a picture outside your window", type=["jpg", "png", "jpeg"])
+                if outside_img:
                     img_out = Image.open(outside_img)
                     st.image(img_out, caption="📸 This is the weather right now. You're welcome.")
-           
+                    st.session_state.awaiting_upload = False
 
 if __name__ == "__main__":
     main()

@@ -62,18 +62,88 @@ def ask_gemini(query):
             detected_keyword = kw
             break
 
+    sarcastic_replies = {
+        "rain": [
+            "Oh great, another rainy day to ruin your plans. Don't forget your umbrella... or better yet, just stay inside!",
+            "Yes. It’s raining wisdom. But not weather data.",
+            "Rain check on your plans? Maybe check outside first next time.",
+            "Umbrella sales are booming thanks to your curiosity.",
+            "If you want a weather update, try looking out a window instead."
+        ],
+        "sun": [
+            "Ah yes, the sun is shining bright just to remind you how sweaty you’ll be outside.",
+            "Why don’t you open a window and find out like the good old days?",
+            "Newsflash: the weather doesn’t text back.",
+            "Go outside and stop bothering me with basic questions."
+        ],
+        "sunny": [
+            "Ah yes, the sun is shining bright just to remind you how sweaty you’ll be outside.",
+            "Why don’t you open a window and find out like the good old days?",
+            "Newsflash: the weather doesn’t text back.",
+            "Go outside and stop bothering me with basic questions."
+        ],
+        "storm": [
+            "Storm alert! Perfect weather to test if your roof leaks or not.",
+            "Storm’s brewing, just like your patience running out.",
+            "Thunder’s just the sky clapping for your curiosity.",
+            "Stormy questions..!! Too much to handle.",
+            "Go watch the storm show live if it's storming instead of texting me."
+        ],
+        "snow": [
+            "Snow again? Time to shovel and freeze your toes off!",
+            "Cold enough outside to freeze that question in your brain.",
+            "If you’re waiting for a snow day, maybe wait outside instead.",
+            "Snow joke, this is basic stuff you can check yourself.",
+            "Snowflakes aren’t the only things falling—your common sense too."
+        ],
+        "temperature": [
+            "Why ask me when you can just feel the heat yourself?"
+        ],
+        "hot": [
+            "It’s hot outside, just like this conversation.",
+            "Hot enough to fry an egg, or just your brain cells?",
+            "Sweating the small stuff? Go outside and cool off.",
+            "Hot take: check the weather before pestering me.",
+            "Feeling the heat? Maybe it’s your bad questions."
+        ],
+        "cold": [
+            "Cold enough to freeze that question in your brain?"
+        ],
+        "humidity": [
+            "If you want dry facts, check outside instead of asking.",
+            "Humidity’s a pain, like repeating yourself to me."
+        ],
+        "cloud": [
+            "Clouds outside, clouded judgment inside.",
+            "Too cloudy for your brain to work?",
+            "Cloudy skies, clearer excuses not to go outside.",
+            "Clouds blocking the sun, and your common sense.",
+            "Don’t blame the clouds for your dull questions."
+        ],
+        "lightning": [
+            "Lightning fast questions, but slow answers.",
+            "Hope lightning strikes before you ask that again.",
+            "Bright flashes outside, dim thoughts inside.",
+            "Lightning’s scary, your questions are scarier.",
+            "Go watch the lightning show, I’m done here."
+        ],
+        "wind": [
+            "The wind’s talking—too bad you’re not listening.",
+            "Windy enough to blow your questions away.",
+            "If you want a breeze, open a window, not your mouth.",
+            "Your curiosity’s like the wind—always changing direction.",
+            "Stop blowing hot air and check outside."
+        ]
+    }
+
     if detected_keyword:
-        if detected_keyword == "rain":
-            reply = "Oh great, another rainy day to ruin your plans. Don't forget your umbrella... or better yet, just stay inside!"
-        elif detected_keyword in ["sun", "sunny"]:
-            reply = "Ah yes, the sun is shining bright just to remind you how sweaty you’ll be outside."
-        elif detected_keyword == "storm":
-            reply = "Storm alert! Perfect weather to test if your roof leaks or not."
-        elif detected_keyword == "snow":
-            reply = "Snow again? Time to shovel and freeze your toes off!"
+        key = detected_keyword.lower()
+        if key in sarcastic_replies:
+            reply = random.choice(sarcastic_replies[key])
         else:
             reply = f"Yeah, the {detected_keyword} is just fabulous today. Couldn't be better!"
         return {"is_weather": True, "reply": reply}
+
     return {"is_weather": False, "reply": "Hmm, not sure about that. But I'm here to chat!"}
 
 def show_dashboard():
@@ -97,13 +167,6 @@ def show_dashboard():
     cols = st.columns(6)
     for idx, hour in enumerate(hourly_forecast[:6]):
         with cols[idx]:
-            st.write(hour["hour"])
-            st.write(hour["temp"])
-            st.write(hour["cond"])
-
-    cols2 = st.columns(6)
-    for idx, hour in enumerate(hourly_forecast[6:]):
-        with cols2[idx]:
             st.write(hour["hour"])
             st.write(hour["temp"])
             st.write(hour["cond"])
@@ -193,7 +256,7 @@ def main():
                 if detected:
                     st.success("✅ Sunglasses detected! Access granted.")
                     st.session_state.sunglasses_ok = True
-                    st.rerun()  # <---- important to rerun app and show dashboard!
+                    st.rerun()  # rerun app to show dashboard
                 else:
                     st.error("🚫 No sunglasses detected! Go put them on if you want sarcastic weather.")
             cap.release()
@@ -207,19 +270,25 @@ def main():
             show_dashboard()
 
         with tab2:
+            if "query" not in st.session_state:
+                st.session_state.query = ""
+
             if not st.session_state.awaiting_upload:
-                query = st.text_input("Ask me anything (weather or not)...")
-                if query:
+                query = st.text_input("Ask me anything (weather or not)...", value=st.session_state.query, key="query_input")
+                if query and query != st.session_state.query:
+                    st.session_state.query = query
                     result = ask_gemini(query)
                     st.write("🤖:", result["reply"])
                     st.info("This time I promise I'll give you the accurate weather... trust me 😏")
                     st.session_state.awaiting_upload = True
-            
+
+            else:
                 outside_img = st.file_uploader("Upload a picture outside your window", type=["jpg", "png", "jpeg"])
                 if outside_img:
                     img_out = Image.open(outside_img)
                     st.image(img_out, caption="📸 This is the weather right now. You're welcome.")
                     st.session_state.awaiting_upload = False
+                    st.session_state.query = ""  # Clear previous query so input box resets
 
 if __name__ == "__main__":
     main()
